@@ -71,20 +71,64 @@
             }
 
             function renderStats() {
-              const el = document.querySelector('#video-test-stats');
-              if (!el) return;
-              const map = loadCounts();
-              const days = [];
-              const today = new Date();
-              for (let i = 6; i >= 0; i--) {
-                const d = new Date(today);
-                d.setDate(today.getDate() - i);
-                const k = d.toISOString().slice(0,10);
-                days.push({ key: k, value: map[k] || 0 });
-              }
-              el.innerHTML = days.map(d => '<div style="border:1px solid #333;border-radius:6px;padding:8px;">\n  <div style="font-size:12px;color:#aaa;">'+d.key+'</div>\n  <div style="font-size:18px;">'+d.value+'</div>\n</div>').join('');
               const enable = document.querySelector('#video-test-enable');
               if (enable && enable instanceof HTMLInputElement) enable.checked = isEnabled();
+
+              const map = loadCounts();
+              // Build sorted list of days with data (desc)
+              const entries = Object.keys(map)
+                .filter(k => map[k] > 0)
+                .sort((a,b) => a < b ? 1 : -1);
+
+              // Render recent 3 days with data
+              const recentHost = document.querySelector('#video-test-recent');
+              if (recentHost) {
+                const recent = entries.slice(0, 3);
+                if (recent.length === 0) {
+                  recentHost.innerHTML = '<div style="opacity:.7;font-size:13px;">暂无数据</div>';
+                } else {
+                  recentHost.innerHTML = recent.map(k => (
+                    '<div style="border:1px solid #333;border-radius:6px;padding:8px;">\n' +
+                    '  <div style="font-size:12px;color:#aaa;">'+k+'</div>\n' +
+                    '  <div style="font-size:18px;">'+map[k]+'</div>\n' +
+                    '</div>'
+                  )).join('');
+                }
+              }
+
+              // Month select options from all available keys
+              const monthSel = document.querySelector('#video-test-month-select');
+              const allWrap = document.querySelector('#video-test-all-wrap');
+              const monthHost = document.querySelector('#video-test-month-stats');
+              if (monthSel && monthHost) {
+                const months = Array.from(new Set(Object.keys(map).map(k => k.slice(0,7)))).sort((a,b)=> a < b ? 1 : -1);
+                const current = localStorage.getItem('videoTest.month') || (months[0] || new Date().toISOString().slice(0,7));
+                monthSel.innerHTML = months.map(m => '<option value="'+m+'"'+(m===current?' selected':'')+'>'+m+'</option>').join('');
+                localStorage.setItem('videoTest.month', current);
+
+                function renderMonth(m){
+                  // list all days in month
+                  const [y, mo] = m.split('-').map(x=>parseInt(x,10));
+                  const first = new Date(y, mo-1, 1);
+                  const next = new Date(y, mo, 1);
+                  const days = [];
+                  for (let d = new Date(first); d < next; d.setDate(d.getDate()+1)) {
+                    const k = d.toISOString().slice(0,10);
+                    const val = map[k] || 0;
+                    days.push({ key:k, value: val });
+                  }
+                  monthHost.innerHTML = days.map(d => (
+                    '<div style="border:1px solid #333;border-radius:6px;padding:8px;">\n' +
+                    '  <div style="font-size:12px;color:#aaa;">'+d.key+'</div>\n' +
+                    '  <div style="font-size:18px;">'+d.value+'</div>\n' +
+                    '</div>'
+                  )).join('');
+                }
+                if (allWrap && allWrap.style.display !== 'none') {
+                  renderMonth(current);
+                }
+                monthSel.onchange = function(){ localStorage.setItem('videoTest.month', this.value); renderMonth(this.value); };
+              }
             }
 
             // Bind UI events
@@ -150,7 +194,17 @@
               const enableCb = document.querySelector('#video-test-enable');
               if (enableCb) {
                 enableCb.addEventListener('change', function(_e){
-                  // no-op: timer runs continuously; scan is gated by isEnabled()
+                  renderStats();
+                });
+              }
+              const toggleAllBtn = document.querySelector('#video-test-toggle-all');
+              if (toggleAllBtn) {
+                toggleAllBtn.addEventListener('click', function(){
+                  const wrap = document.querySelector('#video-test-all-wrap');
+                  if (!wrap) return;
+                  const visible = wrap.style.display !== 'none';
+                  wrap.style.display = visible ? 'none' : 'block';
+                  this.textContent = visible ? '查看全部' : '收起';
                   renderStats();
                 });
               }
