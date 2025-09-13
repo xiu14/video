@@ -70,11 +70,16 @@
               renderStats();
             }
 
-            function renderStats() {
+            function renderStats(force) {
               const enable = document.querySelector('#video-test-enable');
               if (enable && enable instanceof HTMLInputElement) enable.checked = isEnabled();
 
               const map = loadCounts();
+              // Overall total
+              const total = Object.values(map).reduce((a,b)=>a+(b||0), 0);
+              const totalEl = document.querySelector('#video-test-total');
+              if (totalEl) totalEl.textContent = String(total);
+
               // Build sorted list of days with data (desc)
               const entries = Object.keys(map)
                 .filter(k => map[k] > 0)
@@ -84,50 +89,70 @@
               const recentHost = document.querySelector('#video-test-recent');
               if (recentHost) {
                 const recent = entries.slice(0, 3);
-                if (recent.length === 0) {
-                  recentHost.innerHTML = '<div style="opacity:.7;font-size:13px;">暂无数据</div>';
-                } else {
-                  recentHost.innerHTML = recent.map(k => (
-                    '<div style="border:1px solid #333;border-radius:6px;padding:8px;">\n' +
-                    '  <div style="font-size:12px;color:#aaa;">'+k+'</div>\n' +
-                    '  <div style="font-size:18px;">'+map[k]+'</div>\n' +
-                    '</div>'
-                  )).join('');
-                }
+                recentHost.innerHTML = recent.length === 0
+                  ? '<div style="opacity:.7;font-size:13px;">暂无数据</div>'
+                  : recent.map(k => (
+                      '<div style="border:1px solid #333;border-radius:6px;padding:8px;">\n' +
+                      '  <div style="font-size:12px;color:#aaa;">'+k+'</div>\n' +
+                      '  <div style="font-size:18px;">'+map[k]+'</div>\n' +
+                      '</div>'
+                    )).join('');
               }
 
-              // Month select options from all available keys
+              // Month select options from all available keys (only months that have any data)
               const monthSel = document.querySelector('#video-test-month-select');
               const allWrap = document.querySelector('#video-test-all-wrap');
               const monthHost = document.querySelector('#video-test-month-stats');
+              const monthTotalEl = document.querySelector('#video-test-month-total');
               if (monthSel && monthHost) {
-                const months = Array.from(new Set(Object.keys(map).map(k => k.slice(0,7)))).sort((a,b)=> a < b ? 1 : -1);
-                const current = localStorage.getItem('videoTest.month') || (months[0] || new Date().toISOString().slice(0,7));
-                monthSel.innerHTML = months.map(m => '<option value="'+m+'"'+(m===current?' selected':'')+'>'+m+'</option>').join('');
-                localStorage.setItem('videoTest.month', current);
+                const months = Array.from(
+                  new Set(Object.keys(map).filter(k=>map[k]>0).map(k => k.slice(0,7)))
+                ).sort((a,b)=> a < b ? 1 : -1);
+                const current = (function(){
+                  const saved = localStorage.getItem('videoTest.month');
+                  if (saved && months.includes(saved)) return saved;
+                  return months[0] || new Date().toISOString().slice(0,7);
+                })();
+
+                // Only rebuild month options if changed or force
+                const prevOptionsSig = monthSel.getAttribute('data-sig');
+                const nextOptionsSig = months.join('|');
+                if (force || prevOptionsSig !== nextOptionsSig) {
+                  monthSel.innerHTML = months.map(m => '<option value="'+m+'"'+(m===current?' selected':'')+'>'+m+'</option>').join('');
+                  monthSel.setAttribute('data-sig', nextOptionsSig);
+                  localStorage.setItem('videoTest.month', current);
+                } else {
+                  // keep current selection
+                }
 
                 function renderMonth(m){
-                  // list all days in month
-                  const [y, mo] = m.split('-').map(x=>parseInt(x,10));
-                  const first = new Date(y, mo-1, 1);
-                  const next = new Date(y, mo, 1);
-                  const days = [];
-                  for (let d = new Date(first); d < next; d.setDate(d.getDate()+1)) {
-                    const k = d.toISOString().slice(0,10);
-                    const val = map[k] || 0;
-                    days.push({ key:k, value: val });
+                  // only include dates with data and in the selected month
+                  const daily = Object.keys(map)
+                    .filter(k => map[k] > 0 && k.startsWith(m))
+                    .sort((a,b)=> a < b ? 1 : -1)
+                    .map(k => ({ key:k, value: map[k] }));
+                  monthHost.innerHTML = daily.length === 0
+                    ? '<div style="opacity:.7;font-size:13px;">该月暂无数据</div>'
+                    : daily.map(d => (
+                        '<div style="border:1px solid #333;border-radius:6px;padding:8px;">\n' +
+                        '  <div style="font-size:12px;color:#aaa;">'+d.key+'</div>\n' +
+                        '  <div style="font-size:18px;">'+d.value+'</div>\n' +
+                        '</div>'
+                      )).join('');
+                  if (monthTotalEl) {
+                    const sum = daily.reduce((a,b)=>a+(b.value||0),0);
+                    monthTotalEl.textContent = String(sum);
                   }
-                  monthHost.innerHTML = days.map(d => (
-                    '<div style="border:1px solid #333;border-radius:6px;padding:8px;">\n' +
-                    '  <div style="font-size:12px;color:#aaa;">'+d.key+'</div>\n' +
-                    '  <div style="font-size:18px;">'+d.value+'</div>\n' +
-                    '</div>'
-                  )).join('');
                 }
+                const currentVal = (monthSel instanceof HTMLSelectElement) ? (monthSel.value || current) : current;
                 if (allWrap && allWrap.style.display !== 'none') {
-                  renderMonth(current);
+                  renderMonth(currentVal);
                 }
-                monthSel.onchange = function(){ localStorage.setItem('videoTest.month', this.value); renderMonth(this.value); };
+                monthSel.onchange = function(){
+                  const val = (this instanceof HTMLSelectElement) ? this.value : current;
+                  localStorage.setItem('videoTest.month', val);
+                  renderMonth(val);
+                };
               }
             }
 
@@ -194,7 +219,18 @@
               const enableCb = document.querySelector('#video-test-enable');
               if (enableCb) {
                 enableCb.addEventListener('change', function(_e){
-                  renderStats();
+                  renderStats(true);
+                });
+              }
+              const toggleAllBtn = document.querySelector('#video-test-toggle-all');
+              if (toggleAllBtn) {
+                toggleAllBtn.addEventListener('click', function(){
+                  const wrap = document.querySelector('#video-test-all-wrap');
+                  if (!wrap) return;
+                  const visible = wrap.style.display !== 'none';
+                  wrap.style.display = visible ? 'none' : 'block';
+                  this.textContent = visible ? '查看全部' : '收起';
+                  renderStats(true);
                 });
               }
               const toggleAllBtn = document.querySelector('#video-test-toggle-all');
