@@ -239,17 +239,6 @@
                   renderStats(true);
                 });
               }
-              const toggleAllBtn = document.querySelector('#video-test-toggle-all');
-              if (toggleAllBtn) {
-                toggleAllBtn.addEventListener('click', function(){
-                  const wrap = document.querySelector('#video-test-all-wrap');
-                  if (!wrap) return;
-                  const visible = wrap.style.display !== 'none';
-                  wrap.style.display = visible ? 'none' : 'block';
-                  this.textContent = visible ? '查看全部' : '收起';
-                  renderStats();
-                });
-              }
               // Always start polling
               start();
             })();
