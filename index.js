@@ -100,7 +100,6 @@
               const markedAttr = 'data-video-counted';
               let timerId = null;
               let lastIncrementAt = 0;
-              let prevAssistantCount = 0;
 
               function isAssistantElement(el){
                 if (!(el instanceof HTMLElement)) return false;
@@ -114,32 +113,9 @@
                 return false;
               }
 
-              function selectAssistantContainers() {
-                const nodes = Array.from(document.querySelectorAll('.mes, .message, .assistant, [data-owner="assistant"], .bubble-assistant'));
-                return nodes.filter(function(el){
-                  if (!(el instanceof HTMLElement)) return false;
-                  if (el.classList.contains('from-user')) return false;
-                  if (el.getAttribute('data-owner') === 'user') return false;
-                  return true;
-                });
-              }
-
               function scanAndMark(){
                 if (!isEnabled()) return;
-                // 1) Count distinct assistant message containers and increment by delta
-                const containers = selectAssistantContainers();
-                const countNow = containers.length;
-                if (countNow > prevAssistantCount) {
-                  const delta = countNow - prevAssistantCount;
-                  const now = Date.now();
-                  if (now - lastIncrementAt > 400) {
-                    for (let i = 0; i < delta; i++) incToday();
-                    lastIncrementAt = now;
-                  }
-                }
-                if (countNow !== prevAssistantCount) prevAssistantCount = countNow;
-
-                // 2) Mark newly seen assistant nodes (secondary heuristic)
+                // Broad query; safe on mobile where class names differ
                 const list = document.querySelectorAll('.mes, .assistant, [data-owner], .bubble-assistant, .message');
                 let added = 0;
                 list.forEach(function(el){
@@ -150,6 +126,7 @@
                   added++;
                 });
                 if (added > 0) {
+                  // Collapse burst into a single increment with debounce to avoid multi-scan duplication
                   const now = Date.now();
                   if (now - lastIncrementAt > 1500) {
                     incToday();
@@ -169,12 +146,15 @@
                 timerId = null;
               }
 
+              // Toggle with enable checkbox (always keep timer running; gating inside scan)
               const enableCb = document.querySelector('#video-test-enable');
               if (enableCb) {
                 enableCb.addEventListener('change', function(_e){
+                  // no-op: timer runs continuously; scan is gated by isEnabled()
                   renderStats();
                 });
               }
+              // Always start polling
               start();
             })();
 
