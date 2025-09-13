@@ -1,33 +1,52 @@
- (function() {
-   const EXT_NAME = 'VideoTest';
+ (function () {
+   const extensionRepoName = 'video';
+   const displayName = 'VideoTest';
 
-   function tryRegister() {
+   function initWhenReady() {
      try {
-       if (!window || !window.SillyTavern || typeof window.SillyTavern.registerExtension !== 'function') {
+       if (!window || !window.SillyTavern || typeof window.SillyTavern.getContext !== 'function') {
+         return false;
+       }
+       const ctx = window.SillyTavern.getContext();
+       if (!ctx || typeof ctx.renderExtensionTemplateAsync !== 'function') {
          return false;
        }
 
-       window.SillyTavern.registerExtension({
-         name: EXT_NAME,
-         init: function () {
-           console.log('[VideoTest] extension initialized.');
-         },
-         settings: function () {
-           return '<div style="padding:8px">\n              <h3 style="margin:0 0 8px 0;">VideoTest</h3>\n              <p>扩展已成功加载（Third-Party）。这是一个最小的设置面板。</p>\n            </div>';
-         }
-       });
+       // Inject settings drawer like the reference extension
+       ctx
+         .renderExtensionTemplateAsync(`third-party/${extensionRepoName}`, 'templates/settings')
+         .then(function (html) {
+           const container = document.querySelector('#extensions_settings');
+           if (container && typeof container.insertAdjacentHTML === 'function') {
+             container.insertAdjacentHTML('beforeend', html);
+             console.log(`[${displayName}] settings panel injected.`);
+           }
+         })
+         .catch(function (err) {
+           console.warn(`[${displayName}] settings template render failed:`, err);
+         });
 
-       console.log('[VideoTest] registered with SillyTavern.');
+       // Optional: add a small toolbar hint icon to confirm activation
+       const target = document.querySelector('.form_create_bottom_buttons_block') || document.querySelector('#rm_buttons_container');
+       if (target) {
+         const html = '<div class="menu_button fa-solid fa-circle-info interactable" title="' + displayName + '"></div>';
+         const wrapper = document.createElement('div');
+         wrapper.innerHTML = html.trim();
+         const node = wrapper.firstChild;
+         if (node) target.prepend(node);
+       }
+
+       console.log(`[${displayName}] initialized.`);
        return true;
      } catch (e) {
-       console.warn('[VideoTest] register error:', e);
+       console.warn(`[${displayName}] init error:`, e);
        return false;
      }
    }
 
-   if (!tryRegister()) {
-     const timerId = setInterval(function() {
-       if (tryRegister()) clearInterval(timerId);
+   if (!initWhenReady()) {
+     const timer = setInterval(function () {
+       if (initWhenReady()) clearInterval(timer);
      }, 300);
    }
  })();
