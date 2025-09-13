@@ -12,12 +12,18 @@
         return false;
       }
 
-      // Inject settings drawer into Extensions panel
-      ctx
-        .renderExtensionTemplateAsync(`third-party/${extensionRepoName}`, 'templates/settings')
-        .then(function (html) {
-          const container = document.querySelector('#extensions_settings');
-          if (container && typeof container.insertAdjacentHTML === 'function') {
+      // Wait for extensions_settings container before injecting
+      function ensureContainerAndInject() {
+        const container = document.querySelector('#extensions_settings');
+        if (!container) {
+          setTimeout(ensureContainerAndInject, 200);
+          return;
+        }
+        ctx
+          .renderExtensionTemplateAsync(`third-party/${extensionRepoName}`, 'templates/settings')
+          .then(function (html) {
+            // prevent duplicate injection
+            if (document.querySelector('#video-test-root')) return;
             container.insertAdjacentHTML('beforeend', html);
             console.log(`[${displayName}] settings panel injected.`);
 
@@ -250,11 +256,12 @@
 
             // Initial render
             renderStats();
-          }
-        })
-        .catch(function (err) {
-          console.warn(`[${displayName}] settings template render failed:`, err);
-        });
+          })
+          .catch(function (err) {
+            console.warn(`[${displayName}] settings template render failed:`, err);
+          });
+      }
+      ensureContainerAndInject();
 
       console.log(`[${displayName}] initialized.`);
       return true;
