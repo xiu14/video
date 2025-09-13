@@ -1,8 +1,10 @@
 {
   "name": "VideoTest",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Minimal SillyTavern third-party extension for display test.",
   "author": "xiu14",
+  "homepage": "https://github.com/xiu14/video",
+  "repository": "https://github.com/xiu14/video",
   "license": "MIT",
   "scripts": [
     "index.js"
