@@ -20,6 +20,18 @@
           if (container && typeof container.insertAdjacentHTML === 'function') {
             container.insertAdjacentHTML('beforeend', html);
             console.log(`[${displayName}] settings panel injected.`);
+
+            // Bind events inside the injected panel
+            const helloBtn = document.querySelector('#video-test-hello-btn');
+            if (helloBtn) {
+              helloBtn.addEventListener('click', function () {
+                try {
+                  alert('Hello from ' + displayName + '!');
+                } catch (_) {
+                  console.log('[VideoTest] Hello button clicked.');
+                }
+              });
+            }
           }
         })
         .catch(function (err) {
