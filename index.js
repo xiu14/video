@@ -140,15 +140,16 @@
                 timerId = null;
               }
 
-              // Toggle with enable checkbox
+              // Toggle with enable checkbox (always keep timer running; gating inside scan)
               const enableCb = document.querySelector('#video-test-enable');
               if (enableCb) {
-                enableCb.addEventListener('change', function(e){
-                  if (e.target.checked) start(); else stop();
+                enableCb.addEventListener('change', function(_e){
+                  // no-op: timer runs continuously; scan is gated by isEnabled()
+                  renderStats();
                 });
               }
-              // Start immediately if enabled
-              if (isEnabled()) start();
+              // Always start polling
+              start();
             })();
 
             // Initial render
