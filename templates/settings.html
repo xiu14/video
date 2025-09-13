@@ -1,71 +1,17 @@
-<div id="video-test-root" class="video_settings" data-bound="0">
+<div id="video-test-root" class="video_settings">
   <div class="inline-drawer">
     <div class="inline-drawer-toggle inline-drawer-header">
       <b>VideoTest</b>
       <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
     </div>
     <div class="inline-drawer-content">
-      <div class="video-test-panel" style="margin-top:8px; border: 1px solid #333; border-radius: 8px; background: #1e1f22; color: #fff;">
-        <style>
-          /* Scoped to panel to avoid global impact */
-          #video-test-root .menu_button {
-            white-space: nowrap; /* single line */
-            writing-mode: horizontal-tb; /* force horizontal layout */
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 10px;
-          }
-          #video-test-root .grid-recent {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 6px;
-          }
-          #video-test-root .grid-month {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 6px;
-          }
-          #video-test-root .card {
-            border: 1px solid #333; border-radius: 6px; padding: 8px;
-          }
-          #video-test-root .muted { font-size: 12px; color: #aaa; }
-          #video-test-root .value { font-size: 18px; }
-          #video-test-root select {
-            white-space: nowrap; writing-mode: horizontal-tb;
-          }
-        </style>
+      <div style="margin-top:8px; border: 1px solid #333; border-radius: 8px; background: #1e1f22; color: #fff;">
         <div style="padding: 10px 12px; border-bottom: 1px solid #2a2b2f; display:flex; align-items:center; gap:8px;">
           <span class="fa-solid fa-wand-magic-sparkles"></span>
-          <b>AI 回复计数</b>
+          <b>扩展面板</b>
         </div>
         <div style="padding: 12px;">
-          <div id="video-test-status" style="font-size:12px;color:#8ab4f8;margin-bottom:8px;display:none;"></div>
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <label style="display:inline-flex;align-items:center;gap:6px;">
-              <input id="video-test-enable" type="checkbox" /> 启用计数
-            </label>
-            <button id="video-test-reset-today" class="menu_button interactable">重置今天</button>
-            <button id="video-test-clear-all" class="menu_button interactable">清空所有</button>
-          </div>
-
-          <div style="margin-top:12px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-              <div style="font-size:13px;color:#c9c9c9;">最近 3 天（有数据）</div>
-              <button id="video-test-toggle-all" class="menu_button interactable" style="padding:4px 8px;">查看全部</button>
-            </div>
-            <div id="video-test-recent" class="grid-recent" style="margin-top:6px;"></div>
-            <div style="margin-top:8px;font-size:12px;color:#c9c9c9;">总计：<b id="video-test-total">0</b></div>
-          </div>
-
-          <div id="video-test-all-wrap" style="margin-top:14px;display:none;">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-              <div style="font-size:13px;color:#c9c9c9;">按月份查看</div>
-              <select id="video-test-month-select" style="background:#1e1f22;border:1px solid #333;border-radius:6px;padding:6px 8px;color:#fff;"></select>
-            </div>
-            <div style="margin:6px 0 4px;font-size:12px;color:#c9c9c9;">该月总计：<b id="video-test-month-total">0</b></div>
-            <div id="video-test-month-stats" class="grid-month"></div>
-          </div>
+          <div style="font-size:12px;color:#c9c9c9;">这是一个最小示例面板。</div>
         </div>
       </div>
     </div>
