@@ -205,6 +205,8 @@
               let ignoreUntil = 0; // timestamp until which increments are ignored
               const baselineCountKey = 'videoTest.baselineCount';
               const baselineDayKey = 'videoTest.baselineDay';
+              const lastSigKey = 'videoTest.lastSig';
+              const lastSigDayKey = 'videoTest.lastSigDay';
 
               function isAssistantElement(el){
                 if (!(el instanceof HTMLElement)) return false;
@@ -237,6 +239,26 @@
                 try { localStorage.setItem(baselineDayKey, day); localStorage.setItem(baselineCountKey, String(cnt)); } catch(_) {}
               }
 
+              function getAssistantSignature(){
+                const list = selectAssistantContainers();
+                if (!list.length) return '';
+                const last = list[list.length - 1];
+                // Prefer message id-like attributes if present
+                const byAttr = last.getAttribute('data-id') || last.getAttribute('data-msg-id');
+                if (byAttr) return 'id:' + byAttr;
+                const text = (last.textContent || '').replace(/\s+/g, ' ').trim();
+                const head = text.slice(0, 200);
+                return 't:' + head + '#len=' + text.length;
+              }
+              function loadSig(){
+                const day = localStorage.getItem(lastSigDayKey);
+                const sig = localStorage.getItem(lastSigKey) || '';
+                return { day, sig };
+              }
+              function saveSig(day, sig){
+                try { localStorage.setItem(lastSigDayKey, day); localStorage.setItem(lastSigKey, sig || ''); } catch(_) {}
+              }
+
               // Mark all existing assistant nodes but DO NOT count them
               function primeBaseline(){
                 const list = document.querySelectorAll('.mes, .assistant, [data-owner], .bubble-assistant, .message');
@@ -253,6 +275,9 @@
                 const todayKey = getTodayKey();
                 const currentCount = selectAssistantContainers().length;
                 saveBaseline(todayKey, currentCount);
+                // set last signature baseline as well
+                const sig = getAssistantSignature();
+                saveSig(todayKey, sig);
                 primed = true;
               }
 
@@ -264,6 +289,7 @@
                 const currentCountBefore = selectAssistantContainers().length;
                 if (baseDay !== todayKey) {
                   saveBaseline(todayKey, currentCountBefore);
+                  saveSig(todayKey, getAssistantSignature());
                 }
                 // Broad query; safe on mobile where class names differ
                 const list = document.querySelectorAll('.mes, .assistant, [data-owner], .bubble-assistant, .message');
@@ -280,10 +306,14 @@
                   const now = Date.now();
                   const currentCount = selectAssistantContainers().length;
                   const { cnt: baseCountNow } = loadBaseline();
-                  if (now >= ignoreUntil && (now - lastIncrementAt > 1500) && currentCount > baseCountNow) {
+                  const { sig: lastSigDay } = loadSig();
+                  const curSig = getAssistantSignature();
+                  const sigChanged = curSig && curSig !== lastSigDay;
+                  if (now >= ignoreUntil && (now - lastIncrementAt > 1500) && (currentCount > baseCountNow || sigChanged)) {
                     incToday();
                     lastIncrementAt = now;
-                    saveBaseline(todayKey, currentCount);
+                    if (currentCount > baseCountNow) saveBaseline(todayKey, currentCount);
+                    if (sigChanged) saveSig(todayKey, curSig);
                   }
                 }
                 // Always refresh UI so user sees changes immediately
@@ -321,10 +351,14 @@
                       const todayKey = getTodayKey();
                       const currentCount = selectAssistantContainers().length;
                       const { cnt: baseCountNow } = loadBaseline();
-                      if (currentCount > baseCountNow) {
+                      const { sig: lastSigDay } = loadSig();
+                      const curSig = getAssistantSignature();
+                      const sigChanged = curSig && curSig !== lastSigDay;
+                      if (currentCount > baseCountNow || sigChanged) {
                         incToday();
                         lastIncrementAt = now;
-                        saveBaseline(todayKey, currentCount);
+                        if (currentCount > baseCountNow) saveBaseline(todayKey, currentCount);
+                        if (sigChanged) saveSig(todayKey, curSig);
                       }
                     }
                     renderStats();
