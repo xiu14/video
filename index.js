@@ -54,14 +54,23 @@
               const content = root.querySelector('.inline-drawer-content');
               const icon = root.querySelector('.inline-drawer-icon');
               if (!header || !content) return;
-              // optional: start opened by default
-              content.style.display = content.style.display || 'block';
-              header.addEventListener('click', function(){
-                const open = content.style.display !== 'none';
+
+              function isVisible(el){
+                const cs = window.getComputedStyle ? getComputedStyle(el) : null;
+                const disp = cs ? cs.display : el.style.display;
+                return disp !== 'none';
+              }
+              // start opened
+              if (!isVisible(content)) content.style.display = 'block';
+
+              header.addEventListener('click', function(e){
+                try { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch(_) {}
+                const open = isVisible(content);
                 content.style.display = open ? 'none' : 'block';
                 if (icon && icon.classList) {
-                  icon.classList.toggle('down', !open);
+                  if (open) { icon.classList.remove('down'); } else { icon.classList.add('down'); }
                 }
+                if (header.setAttribute) header.setAttribute('aria-expanded', String(!open));
               }, { once: false });
             } catch(_) {}
       }
