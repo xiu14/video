@@ -1,0 +1,10 @@
+{
+  "name": "VideoTest",
+  "version": "1.0.0",
+  "description": "Minimal SillyTavern third-party extension for display test.",
+  "author": "xiu14",
+  "license": "MIT",
+  "scripts": [
+    "index.js"
+  ]
+}
