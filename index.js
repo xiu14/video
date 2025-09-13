@@ -99,6 +99,7 @@
             (function setupPolling(){
               const markedAttr = 'data-video-counted';
               let timerId = null;
+              let lastIncrementAt = 0;
 
               function isAssistantElement(el){
                 if (!(el instanceof HTMLElement)) return false;
@@ -125,15 +126,20 @@
                   added++;
                 });
                 if (added > 0) {
-                  // Count total newly marked assistant nodes as one reply increment.
-                  // Many themes render one reply into multiple nodes; collapse burst into 1.
-                  incToday();
+                  // Collapse burst into a single increment with debounce to avoid multi-scan duplication
+                  const now = Date.now();
+                  if (now - lastIncrementAt > 1500) {
+                    incToday();
+                    lastIncrementAt = now;
+                  }
                 }
+                // Always refresh UI so user sees changes immediately
+                renderStats();
               }
 
               function start(){
                 if (timerId) return;
-                timerId = setInterval(scanAndMark, 1200);
+                timerId = setInterval(scanAndMark, 300);
               }
               function stop(){
                 if (timerId) clearInterval(timerId);
