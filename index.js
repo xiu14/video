@@ -261,6 +261,7 @@
 
               // Mark all existing assistant nodes but DO NOT count them
               function primeBaseline(){
+                // Mark existing assistant nodes so they are not counted
                 const list = document.querySelectorAll('.mes, .assistant, [data-owner], .bubble-assistant, .message');
                 list.forEach(function(el){
                   if (!(el instanceof HTMLElement)) return;
@@ -268,16 +269,28 @@
                   if (!isAssistantElement(el)) return;
                   el.setAttribute(markedAttr, '1');
                 });
+
                 const now = Date.now();
                 lastIncrementAt = now;
-                ignoreUntil = now + 2000; // ignore initial DOM flood for 2s
-                // set baseline to current assistant message count for today
+                // Allow a slightly longer grace period to avoid counting history reloads
+                ignoreUntil = now + 3000;
+
                 const todayKey = getTodayKey();
                 const currentCount = selectAssistantContainers().length;
-                saveBaseline(todayKey, currentCount);
-                // set last signature baseline as well
-                const sig = getAssistantSignature();
-                saveSig(todayKey, sig);
+
+                // Respect existing baseline for today (do NOT overwrite on refresh)
+                const { day: baseDay, cnt: baseCnt } = loadBaseline();
+                if (baseDay !== todayKey || !(typeof baseCnt === 'number' && baseCnt >= 0)) {
+                  saveBaseline(todayKey, currentCount);
+                }
+
+                // Respect existing last signature for today (do NOT overwrite on refresh)
+                const currentSig = getAssistantSignature();
+                const { day: sigDay, sig: storedSig } = loadSig();
+                if (sigDay !== todayKey || !storedSig) {
+                  saveSig(todayKey, currentSig);
+                }
+
                 primed = true;
               }
 
