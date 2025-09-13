@@ -202,6 +202,7 @@
               let lastIncrementAt = 0;
               let chatObserver = null;
               let primed = false;
+              let ignoreUntil = 0; // timestamp until which increments are ignored
 
               function isAssistantElement(el){
                 if (!(el instanceof HTMLElement)) return false;
@@ -224,7 +225,9 @@
                   if (!isAssistantElement(el)) return;
                   el.setAttribute(markedAttr, '1');
                 });
-                lastIncrementAt = Date.now();
+                const now = Date.now();
+                lastIncrementAt = now;
+                ignoreUntil = now + 2000; // ignore initial DOM flood for 2s
                 primed = true;
               }
 
@@ -243,7 +246,7 @@
                 if (added > 0) {
                   // Collapse burst into a single increment with debounce to avoid multi-scan duplication
                   const now = Date.now();
-                  if (now - lastIncrementAt > 1500) {
+                  if (now >= ignoreUntil && (now - lastIncrementAt > 1500)) {
                     incToday();
                     lastIncrementAt = now;
                   }
@@ -279,7 +282,7 @@
                   }
                   if (hit) {
                     const now = Date.now();
-                    if (now - lastIncrementAt > 500) {
+                    if (now >= ignoreUntil && (now - lastIncrementAt > 500)) {
                       incToday();
                       lastIncrementAt = now;
                     }
