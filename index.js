@@ -207,6 +207,7 @@
               const baselineDayKey = 'videoTest.baselineDay';
               const lastSigKey = 'videoTest.lastSig';
               const lastSigDayKey = 'videoTest.lastSigDay';
+              let lastMutationAt = 0;
 
               function isAssistantElement(el){
                 if (!(el instanceof HTMLElement)) return false;
@@ -220,14 +221,29 @@
                 return false;
               }
 
+              const ROOT_SELECTOR = '.message.assistant, .mes.from-ia, .mes[data-owner="assistant"], .bubble-assistant, .message[data-owner="assistant"]';
+              function findTopAssistantRoot(el){
+                let cur = el;
+                while (cur && cur.parentElement && isAssistantElement(cur.parentElement)) {
+                  cur = cur.parentElement;
+                }
+                return cur;
+              }
               function selectAssistantContainers(){
-                const nodes = Array.from(document.querySelectorAll('.mes, .message, .assistant, [data-owner="assistant"], .bubble-assistant'));
-                return nodes.filter(function(el){
-                  if (!(el instanceof HTMLElement)) return false;
-                  if (el.classList.contains('from-user')) return false;
-                  if (el.getAttribute('data-owner') === 'user') return false;
-                  return isAssistantElement(el);
-                });
+                // Prefer explicit top-level assistant message wrappers
+                const explicit = Array.from(document.querySelectorAll(ROOT_SELECTOR));
+                if (explicit.length) return explicit;
+                // Fallback: compute unique top-level assistant nodes from broad matches
+                const broad = Array.from(document.querySelectorAll('.mes, .message, .assistant, [data-owner], .bubble-assistant'));
+                const uniq = new Set();
+                const result = [];
+                for (const el of broad) {
+                  if (!(el instanceof HTMLElement)) continue;
+                  if (!isAssistantElement(el)) continue;
+                  const root = findTopAssistantRoot(el);
+                  if (!uniq.has(root)) { uniq.add(root); result.push(root); }
+                }
+                return result;
               }
 
               function loadBaseline(){
@@ -250,6 +266,16 @@
                 const head = text.slice(0, 200);
                 return 't:' + head + '#len=' + text.length;
               }
+              function getAssistantSignatureInfo(){
+                const list = selectAssistantContainers();
+                if (!list.length) return { sig: '', byId: false };
+                const last = list[list.length - 1];
+                const byAttr = last.getAttribute('data-id') || last.getAttribute('data-msg-id');
+                if (byAttr) return { sig: 'id:' + byAttr, byId: true };
+                const text = (last.textContent || '').replace(/\s+/g, ' ').trim();
+                const head = text.slice(0, 200);
+                return { sig: 't:' + head + '#len=' + text.length, byId: false };
+              }
               function loadSig(){
                 const day = localStorage.getItem(lastSigDayKey);
                 const sig = localStorage.getItem(lastSigKey) || '';
@@ -261,12 +287,11 @@
 
               // Mark all existing assistant nodes but DO NOT count them
               function primeBaseline(){
-                // Mark existing assistant nodes so they are not counted
-                const list = document.querySelectorAll('.mes, .assistant, [data-owner], .bubble-assistant, .message');
+                // Mark existing top-level assistant nodes so they are not counted
+                const list = selectAssistantContainers();
                 list.forEach(function(el){
                   if (!(el instanceof HTMLElement)) return;
                   if (el.getAttribute(markedAttr) === '1') return;
-                  if (!isAssistantElement(el)) return;
                   el.setAttribute(markedAttr, '1');
                 });
 
@@ -285,7 +310,8 @@
                 }
 
                 // Respect existing last signature for today (do NOT overwrite on refresh)
-                const currentSig = getAssistantSignature();
+                const sigInfo = getAssistantSignatureInfo();
+                const currentSig = sigInfo.sig;
                 const { day: sigDay, sig: storedSig } = loadSig();
                 if (sigDay !== todayKey || !storedSig) {
                   saveSig(todayKey, currentSig);
@@ -296,39 +322,58 @@
 
               function scanAndMark(){
                 if (!isEnabled() || !primed) return;
-                // Day rollover handling: if day changed, reset baseline to current count without increment
+                const now = Date.now();
                 const todayKey = getTodayKey();
+                const currentCount = selectAssistantContainers().length;
                 const { day: baseDay, cnt: baseCnt } = loadBaseline();
-                const currentCountBefore = selectAssistantContainers().length;
                 if (baseDay !== todayKey) {
-                  saveBaseline(todayKey, currentCountBefore);
-                  saveSig(todayKey, getAssistantSignature());
+                  saveBaseline(todayKey, currentCount);
+                  const sigInit = getAssistantSignatureInfo();
+                  saveSig(todayKey, sigInit.sig);
                 }
-                // Broad query; safe on mobile where class names differ
-                const list = document.querySelectorAll('.mes, .assistant, [data-owner], .bubble-assistant, .message');
-                let added = 0;
-                list.forEach(function(el){
+
+                // Mark any unmarked top-level assistant nodes to avoid repeated processing
+                const roots = selectAssistantContainers();
+                roots.forEach(function(el){
                   if (!(el instanceof HTMLElement)) return;
                   if (el.getAttribute(markedAttr) === '1') return;
-                  if (!isAssistantElement(el)) return;
                   el.setAttribute(markedAttr, '1');
-                  added++;
                 });
-                if (added > 0) {
-                  // Collapse burst into a single increment with debounce to avoid multi-scan duplication
-                  const now = Date.now();
-                  const currentCount = selectAssistantContainers().length;
-                  const { cnt: baseCountNow } = loadBaseline();
-                  const { sig: lastSigDay } = loadSig();
-                  const curSig = getAssistantSignature();
-                  const sigChanged = curSig && curSig !== lastSigDay;
-                  if (now >= ignoreUntil && (now - lastIncrementAt > 1500) && (currentCount > baseCountNow || sigChanged)) {
-                    incToday();
-                    lastIncrementAt = now;
-                    if (currentCount > baseCountNow) saveBaseline(todayKey, currentCount);
-                    if (sigChanged) saveSig(todayKey, curSig);
+
+                const sigInfo = getAssistantSignatureInfo();
+                const curSig = sigInfo.sig;
+                const { sig: savedSig } = loadSig();
+
+                if (now < ignoreUntil) {
+                  // Treat initial history (no matter how many nodes) as baseline, never increment
+                  saveBaseline(todayKey, currentCount);
+                  saveSig(todayKey, curSig);
+                } else {
+                  if (sigInfo.byId) {
+                    // With stable message id, count strictly on signature change
+                    if (curSig && curSig !== savedSig && (now - lastIncrementAt > 500)) {
+                      incToday();
+                      lastIncrementAt = now;
+                      saveBaseline(todayKey, currentCount);
+                      saveSig(todayKey, curSig);
+                    } else if (currentCount > baseCnt) {
+                      // Catch up baseline if older messages loaded without a new reply
+                      saveBaseline(todayKey, currentCount);
+                    }
+                  } else {
+                    // Fallback: no stable id, use count increase and debounce to avoid duplicate counts
+                    if ((now - lastIncrementAt > 1200) && currentCount > baseCnt) {
+                      incToday();
+                      lastIncrementAt = now;
+                      saveBaseline(todayKey, currentCount);
+                      saveSig(todayKey, curSig);
+                    } else if (currentCount > baseCnt) {
+                      // History catch-up
+                      saveBaseline(todayKey, currentCount);
+                    }
                   }
                 }
+
                 // Always refresh UI so user sees changes immediately
                 renderStats();
               }
@@ -359,21 +404,8 @@
                     if (hit) break;
                   }
                   if (hit) {
-                    const now = Date.now();
-                    if (now >= ignoreUntil && (now - lastIncrementAt > 500)) {
-                      const todayKey = getTodayKey();
-                      const currentCount = selectAssistantContainers().length;
-                      const { cnt: baseCountNow } = loadBaseline();
-                      const { sig: lastSigDay } = loadSig();
-                      const curSig = getAssistantSignature();
-                      const sigChanged = curSig && curSig !== lastSigDay;
-                      if (currentCount > baseCountNow || sigChanged) {
-                        incToday();
-                        lastIncrementAt = now;
-                        if (currentCount > baseCountNow) saveBaseline(todayKey, currentCount);
-                        if (sigChanged) saveSig(todayKey, curSig);
-                      }
-                    }
+                    // Record last mutation time and let the polling scanner do the counting to avoid double increments
+                    lastMutationAt = Date.now();
                     renderStats();
                   }
                 });
