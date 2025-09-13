@@ -201,6 +201,7 @@
               let timerId = null;
               let lastIncrementAt = 0;
               let chatObserver = null;
+              let primed = false;
 
               function isAssistantElement(el){
                 if (!(el instanceof HTMLElement)) return false;
@@ -214,8 +215,21 @@
                 return false;
               }
 
+              // Mark all existing assistant nodes but DO NOT count them
+              function primeBaseline(){
+                const list = document.querySelectorAll('.mes, .assistant, [data-owner], .bubble-assistant, .message');
+                list.forEach(function(el){
+                  if (!(el instanceof HTMLElement)) return;
+                  if (el.getAttribute(markedAttr) === '1') return;
+                  if (!isAssistantElement(el)) return;
+                  el.setAttribute(markedAttr, '1');
+                });
+                lastIncrementAt = Date.now();
+                primed = true;
+              }
+
               function scanAndMark(){
-                if (!isEnabled()) return;
+                if (!isEnabled() || !primed) return;
                 // Broad query; safe on mobile where class names differ
                 const list = document.querySelectorAll('.mes, .assistant, [data-owner], .bubble-assistant, .message');
                 let added = 0;
@@ -253,7 +267,7 @@
                 const root = document.querySelector('#chat');
                 if (!root) return;
                 chatObserver = new MutationObserver(function(muts){
-                  if (!isEnabled()) return;
+                  if (!isEnabled() || !primed) return;
                   let hit = false;
                   for (const m of muts) {
                     for (const n of m.addedNodes) {
@@ -282,7 +296,15 @@
               // Toggle with enable checkbox (always keep timer running; gating inside scan)
               const enableCb = document.querySelector('#video-test-enable');
               if (enableCb) {
+                let lastState = isEnabled();
                 enableCb.addEventListener('change', function(_e){
+                  const nowOn = isEnabled();
+                  if (nowOn && !lastState) { // turning on
+                    primed = false;
+                    // Prime after a tiny delay to allow any late DOM to settle
+                    setTimeout(function(){ primeBaseline(); renderStats(true); }, 200);
+                  }
+                  lastState = nowOn;
                   renderStats(true);
                 });
               }
@@ -298,7 +320,8 @@
                 });
               }
               // Always start polling
-              start();
+              // Prime once on startup, then start
+              setTimeout(function(){ primeBaseline(); start(); }, 200);
             })();
 
             // Initial render
