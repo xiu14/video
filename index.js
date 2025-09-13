@@ -95,40 +95,61 @@
             const clearBtn = document.querySelector('#video-test-clear-all');
             if (clearBtn) clearBtn.addEventListener('click', clearAll);
 
-            // Observe AI replies via DOM mutations (deduplicated)
-            try {
-              const chatRoot = document.querySelector('#chat');
-              const seen = new WeakSet();
-              function isAiMessage(el) {
-                if (!el || !(el instanceof HTMLElement)) return false;
-                // Typical ST assistant classes (adjust as needed)
-                // .mes from-ia; .assistant; [data-owner="assistant"]
-                if (el.matches && (el.matches('.mes.from-ia, .assistant, [data-owner="assistant"]'))) return true;
-                // inner bubble
-                const inner = el.querySelector && el.querySelector('.mes.from-ia, .assistant, [data-owner="assistant"]');
-                return !!inner;
+            // Polling-based detection with de-duplication for broader compatibility (e.g., mobile)
+            (function setupPolling(){
+              const markedAttr = 'data-video-counted';
+              let timerId = null;
+
+              function isAssistantElement(el){
+                if (!(el instanceof HTMLElement)) return false;
+                // Strong matches
+                if (el.matches && el.matches('.mes.from-ia, .assistant, [data-owner="assistant"], .bubble-assistant, .message.assistant')) return true;
+                // Heuristic: message bubble with class .mes but not explicitly from user
+                if (el.classList && el.classList.contains('mes')) {
+                  if (!el.classList.contains('from-user')) return true;
+                  if (el.getAttribute('data-owner') === 'assistant') return true;
+                }
+                return false;
               }
-              if (chatRoot) {
-                const observer = new MutationObserver(function(mutations){
-                  if (!isEnabled()) return;
-                  for (const m of mutations) {
-                    m.addedNodes.forEach(function(node){
-                      if (!(node instanceof HTMLElement)) return;
-                      // iterate over node and descendants that match
-                      const candidates = [];
-                      if (isAiMessage(node)) candidates.push(node);
-                      node.querySelectorAll && node.querySelectorAll('.mes.from-ia, .assistant, [data-owner="assistant"]').forEach(function(n){ candidates.push(n); });
-                      candidates.forEach(function(c){
-                        if (seen.has(c)) return;
-                        seen.add(c);
-                        incToday();
-                      });
-                    });
-                  }
+
+              function scanAndMark(){
+                if (!isEnabled()) return;
+                // Broad query; safe on mobile where class names differ
+                const list = document.querySelectorAll('.mes, .assistant, [data-owner], .bubble-assistant, .message');
+                let added = 0;
+                list.forEach(function(el){
+                  if (!(el instanceof HTMLElement)) return;
+                  if (el.getAttribute(markedAttr) === '1') return;
+                  if (!isAssistantElement(el)) return;
+                  el.setAttribute(markedAttr, '1');
+                  added++;
                 });
-                observer.observe(chatRoot, { childList: true, subtree: true });
+                if (added > 0) {
+                  // Count total newly marked assistant nodes as one reply increment.
+                  // Many themes render one reply into multiple nodes; collapse burst into 1.
+                  incToday();
+                }
               }
-            } catch (_) {}
+
+              function start(){
+                if (timerId) return;
+                timerId = setInterval(scanAndMark, 1200);
+              }
+              function stop(){
+                if (timerId) clearInterval(timerId);
+                timerId = null;
+              }
+
+              // Toggle with enable checkbox
+              const enableCb = document.querySelector('#video-test-enable');
+              if (enableCb) {
+                enableCb.addEventListener('change', function(e){
+                  if (e.target.checked) start(); else stop();
+                });
+              }
+              // Start immediately if enabled
+              if (isEnabled()) start();
+            })();
 
             // Initial render
             renderStats();
