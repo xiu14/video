@@ -16,7 +16,21 @@
       function ensureContainerAndInject() {
         const container = document.querySelector('#extensions_settings');
         if (!container) {
-          setTimeout(ensureContainerAndInject, 200);
+          // fallback: if长时间未出现，插入到 body 尾部，并显示状态
+          const fallbackAnchor = document.body;
+          if (!document.querySelector('#video-test-root')) {
+            ctx
+              .renderExtensionTemplateAsync(`third-party/${extensionRepoName}`, 'templates/settings')
+              .then(function (html) {
+                if (document.querySelector('#video-test-root')) return;
+                fallbackAnchor.insertAdjacentHTML('beforeend', html);
+                const st = document.querySelector('#video-test-status');
+                if (st) { st.style.display='block'; st.textContent = '未找到扩展容器，已使用兜底位置渲染'; }
+                bootstrapPanel();
+              })
+              .catch(function(){ /* ignore */ });
+          }
+          setTimeout(ensureContainerAndInject, 400);
           return;
         }
         ctx
@@ -26,7 +40,18 @@
             if (document.querySelector('#video-test-root')) return;
             container.insertAdjacentHTML('beforeend', html);
             console.log(`[${displayName}] settings panel injected.`);
+            const st = document.querySelector('#video-test-status');
+            if (st) { st.style.display='block'; st.textContent = '扩展面板已加载'; }
+            bootstrapPanel();
+          })
+          .catch(function (err) {
+            // show error in panel if possible
+            const st = document.querySelector('#video-test-status');
+            if (st) { st.style.display='block'; st.textContent = '渲染错误：' + (err && err.message ? err.message : err); }
+          });
+      }
 
+      function bootstrapPanel(){
             // Stats logic
             const storageKey = 'videoTest.dailyCounts';
             const enableKey = 'videoTest.enabled';
@@ -245,10 +270,6 @@
 
             // Initial render
             renderStats();
-          })
-          .catch(function (err) {
-            console.warn(`[${displayName}] settings template render failed:`, err);
-          });
       }
       ensureContainerAndInject();
 
