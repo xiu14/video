@@ -95,23 +95,35 @@
             const clearBtn = document.querySelector('#video-test-clear-all');
             if (clearBtn) clearBtn.addEventListener('click', clearAll);
 
-            // Observe AI replies via DOM mutations
+            // Observe AI replies via DOM mutations (deduplicated)
             try {
               const chatRoot = document.querySelector('#chat');
+              const seen = new WeakSet();
+              function isAiMessage(el) {
+                if (!el || !(el instanceof HTMLElement)) return false;
+                // Typical ST assistant classes (adjust as needed)
+                // .mes from-ia; .assistant; [data-owner="assistant"]
+                if (el.matches && (el.matches('.mes.from-ia, .assistant, [data-owner="assistant"]'))) return true;
+                // inner bubble
+                const inner = el.querySelector && el.querySelector('.mes.from-ia, .assistant, [data-owner="assistant"]');
+                return !!inner;
+              }
               if (chatRoot) {
                 const observer = new MutationObserver(function(mutations){
                   if (!isEnabled()) return;
                   for (const m of mutations) {
-                    for (const node of m.addedNodes) {
-                      if (!(node instanceof HTMLElement)) continue;
-                      // naive rule: assistant messages often have class 'mes from-ia' or similar
-                      const isAssistant = node.classList && ([...node.classList].some(c => c.includes('mes')) && (node.textContent || '').trim().length > 0);
-                      // fallback: find bubbles inside
-                      const hasAssistantBubble = node.querySelector && node.querySelector('.mes, .assistant, .bubble-assistant');
-                      if (isAssistant || hasAssistantBubble) {
+                    m.addedNodes.forEach(function(node){
+                      if (!(node instanceof HTMLElement)) return;
+                      // iterate over node and descendants that match
+                      const candidates = [];
+                      if (isAiMessage(node)) candidates.push(node);
+                      node.querySelectorAll && node.querySelectorAll('.mes.from-ia, .assistant, [data-owner="assistant"]').forEach(function(n){ candidates.push(n); });
+                      candidates.forEach(function(c){
+                        if (seen.has(c)) return;
+                        seen.add(c);
                         incToday();
-                      }
-                    }
+                      });
+                    });
                   }
                 });
                 observer.observe(chatRoot, { childList: true, subtree: true });
