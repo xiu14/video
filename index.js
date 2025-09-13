@@ -121,11 +121,11 @@
               if (recentHost) {
                 const recent = entries.slice(0, 3);
                 recentHost.innerHTML = recent.length === 0
-                  ? '<div style="opacity:.7;font-size:13px;">暂无数据</div>'
+                  ? '<div class="muted" style="opacity:.7;">暂无数据</div>'
                   : recent.map(k => (
-                      '<div style="border:1px solid #333;border-radius:6px;padding:8px;">\n' +
-                      '  <div style="font-size:12px;color:#aaa;">'+k+'</div>\n' +
-                      '  <div style="font-size:18px;">'+map[k]+'</div>\n' +
+                      '<div class="card">\n' +
+                      '  <div class="muted">'+k+'</div>\n' +
+                      '  <div class="value">'+map[k]+'</div>\n' +
                       '</div>'
                     )).join('');
               }
@@ -163,11 +163,11 @@
                     .sort((a,b)=> a < b ? 1 : -1)
                     .map(k => ({ key:k, value: map[k] }));
                   monthHost.innerHTML = daily.length === 0
-                    ? '<div style="opacity:.7;font-size:13px;">该月暂无数据</div>'
+                    ? '<div class="muted" style="opacity:.7;">该月暂无数据</div>'
                     : daily.map(d => (
-                        '<div style="border:1px solid #333;border-radius:6px;padding:8px;">\n' +
-                        '  <div style="font-size:12px;color:#aaa;">'+d.key+'</div>\n' +
-                        '  <div style="font-size:18px;">'+d.value+'</div>\n' +
+                        '<div class="card">\n' +
+                        '  <div class="muted">'+d.key+'</div>\n' +
+                        '  <div class="value">'+d.value+'</div>\n' +
                         '</div>'
                       )).join('');
                   if (monthTotalEl) {

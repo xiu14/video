@@ -6,6 +6,35 @@
     </div>
     <div class="inline-drawer-content">
       <div class="video-test-panel" style="margin-top:8px; border: 1px solid #333; border-radius: 8px; background: #1e1f22; color: #fff;">
+        <style>
+          /* Scoped to panel to avoid global impact */
+          #video-test-root .menu_button {
+            white-space: nowrap; /* single line */
+            writing-mode: horizontal-tb; /* force horizontal layout */
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+          }
+          #video-test-root .grid-recent {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 6px;
+          }
+          #video-test-root .grid-month {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 6px;
+          }
+          #video-test-root .card {
+            border: 1px solid #333; border-radius: 6px; padding: 8px;
+          }
+          #video-test-root .muted { font-size: 12px; color: #aaa; }
+          #video-test-root .value { font-size: 18px; }
+          #video-test-root select {
+            white-space: nowrap; writing-mode: horizontal-tb;
+          }
+        </style>
         <div style="padding: 10px 12px; border-bottom: 1px solid #2a2b2f; display:flex; align-items:center; gap:8px;">
           <span class="fa-solid fa-wand-magic-sparkles"></span>
           <b>AI 回复计数</b>
@@ -25,7 +54,7 @@
               <div style="font-size:13px;color:#c9c9c9;">最近 3 天（有数据）</div>
               <button id="video-test-toggle-all" class="menu_button interactable" style="padding:4px 8px;">查看全部</button>
             </div>
-            <div id="video-test-recent" style="margin-top:6px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;"></div>
+            <div id="video-test-recent" class="grid-recent" style="margin-top:6px;"></div>
             <div style="margin-top:8px;font-size:12px;color:#c9c9c9;">总计：<b id="video-test-total">0</b></div>
           </div>
 
@@ -35,7 +64,7 @@
               <select id="video-test-month-select" style="background:#1e1f22;border:1px solid #333;border-radius:6px;padding:6px 8px;color:#fff;"></select>
             </div>
             <div style="margin:6px 0 4px;font-size:12px;color:#c9c9c9;">该月总计：<b id="video-test-month-total">0</b></div>
-            <div id="video-test-month-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;"></div>
+            <div id="video-test-month-stats" class="grid-month"></div>
           </div>
         </div>
       </div>
