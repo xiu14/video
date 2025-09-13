@@ -200,6 +200,7 @@
               const markedAttr = 'data-video-counted';
               let timerId = null;
               let lastIncrementAt = 0;
+              let chatObserver = null;
 
               function isAssistantElement(el){
                 if (!(el instanceof HTMLElement)) return false;
@@ -245,6 +246,38 @@
                 if (timerId) clearInterval(timerId);
                 timerId = null;
               }
+
+              // MutationObserver for immediate updates when new nodes are appended
+              function attachObserver(){
+                if (chatObserver) return;
+                const root = document.querySelector('#chat');
+                if (!root) return;
+                chatObserver = new MutationObserver(function(muts){
+                  if (!isEnabled()) return;
+                  let hit = false;
+                  for (const m of muts) {
+                    for (const n of m.addedNodes) {
+                      if (!(n instanceof HTMLElement)) continue;
+                      if (isAssistantElement(n)) { hit = true; break; }
+                      if (n.querySelector && n.querySelector('.mes, .assistant, [data-owner="assistant"], .bubble-assistant, .message.assistant')) { hit = true; break; }
+                    }
+                    if (hit) break;
+                  }
+                  if (hit) {
+                    const now = Date.now();
+                    if (now - lastIncrementAt > 500) {
+                      incToday();
+                      lastIncrementAt = now;
+                    }
+                    renderStats();
+                  }
+                });
+                try { chatObserver.observe(root, { childList: true, subtree: true }); } catch(_) {}
+              }
+              // Retry attaching observer until found
+              const attachTimer = setInterval(function(){
+                if (document.querySelector('#chat')) { attachObserver(); clearInterval(attachTimer); }
+              }, 500);
 
               // Toggle with enable checkbox (always keep timer running; gating inside scan)
               const enableCb = document.querySelector('#video-test-enable');
