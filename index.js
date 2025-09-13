@@ -203,6 +203,8 @@
               let chatObserver = null;
               let primed = false;
               let ignoreUntil = 0; // timestamp until which increments are ignored
+              const baselineCountKey = 'videoTest.baselineCount';
+              const baselineDayKey = 'videoTest.baselineDay';
 
               function isAssistantElement(el){
                 if (!(el instanceof HTMLElement)) return false;
@@ -214,6 +216,25 @@
                   if (el.getAttribute('data-owner') === 'assistant') return true;
                 }
                 return false;
+              }
+
+              function selectAssistantContainers(){
+                const nodes = Array.from(document.querySelectorAll('.mes, .message, .assistant, [data-owner="assistant"], .bubble-assistant'));
+                return nodes.filter(function(el){
+                  if (!(el instanceof HTMLElement)) return false;
+                  if (el.classList.contains('from-user')) return false;
+                  if (el.getAttribute('data-owner') === 'user') return false;
+                  return isAssistantElement(el);
+                });
+              }
+
+              function loadBaseline(){
+                const day = localStorage.getItem(baselineDayKey);
+                const cnt = parseInt(localStorage.getItem(baselineCountKey) || '0', 10) || 0;
+                return { day, cnt };
+              }
+              function saveBaseline(day, cnt){
+                try { localStorage.setItem(baselineDayKey, day); localStorage.setItem(baselineCountKey, String(cnt)); } catch(_) {}
               }
 
               // Mark all existing assistant nodes but DO NOT count them
@@ -228,11 +249,22 @@
                 const now = Date.now();
                 lastIncrementAt = now;
                 ignoreUntil = now + 2000; // ignore initial DOM flood for 2s
+                // set baseline to current assistant message count for today
+                const todayKey = getTodayKey();
+                const currentCount = selectAssistantContainers().length;
+                saveBaseline(todayKey, currentCount);
                 primed = true;
               }
 
               function scanAndMark(){
                 if (!isEnabled() || !primed) return;
+                // Day rollover handling: if day changed, reset baseline to current count without increment
+                const todayKey = getTodayKey();
+                const { day: baseDay, cnt: baseCnt } = loadBaseline();
+                const currentCountBefore = selectAssistantContainers().length;
+                if (baseDay !== todayKey) {
+                  saveBaseline(todayKey, currentCountBefore);
+                }
                 // Broad query; safe on mobile where class names differ
                 const list = document.querySelectorAll('.mes, .assistant, [data-owner], .bubble-assistant, .message');
                 let added = 0;
@@ -246,9 +278,12 @@
                 if (added > 0) {
                   // Collapse burst into a single increment with debounce to avoid multi-scan duplication
                   const now = Date.now();
-                  if (now >= ignoreUntil && (now - lastIncrementAt > 1500)) {
+                  const currentCount = selectAssistantContainers().length;
+                  const { cnt: baseCountNow } = loadBaseline();
+                  if (now >= ignoreUntil && (now - lastIncrementAt > 1500) && currentCount > baseCountNow) {
                     incToday();
                     lastIncrementAt = now;
+                    saveBaseline(todayKey, currentCount);
                   }
                 }
                 // Always refresh UI so user sees changes immediately
@@ -283,8 +318,14 @@
                   if (hit) {
                     const now = Date.now();
                     if (now >= ignoreUntil && (now - lastIncrementAt > 500)) {
-                      incToday();
-                      lastIncrementAt = now;
+                      const todayKey = getTodayKey();
+                      const currentCount = selectAssistantContainers().length;
+                      const { cnt: baseCountNow } = loadBaseline();
+                      if (currentCount > baseCountNow) {
+                        incToday();
+                        lastIncrementAt = now;
+                        saveBaseline(todayKey, currentCount);
+                      }
                     }
                     renderStats();
                   }
